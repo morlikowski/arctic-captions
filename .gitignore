@@ -1,3 +1,16 @@
+data/coco/val2014.zip
+data/flickr30k/flickr30k-images
+anandlib/
+*.pkl
+*.py~
+.ipynb_checkpoints/
+*~
+*.npz
+*.gz
+nohup.out
+data/
+*.swp
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
