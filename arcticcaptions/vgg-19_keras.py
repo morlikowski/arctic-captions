@@ -5,7 +5,7 @@ from keras.layers.convolutional import Convolution2D, MaxPooling2D, ZeroPadding2
 from keras.optimizers import SGD
 from cv2 import resize, imread
 import numpy as np
-import os.path
+import os
 
 def VGG_19(weights_path=None):
     model = Sequential()
@@ -72,12 +72,12 @@ if __name__ == "__main__":
     im = np.expand_dims(im, axis=0)
 
     # Test pretrained model
-    weights_path = 'data/vgg19/vgg19_weights.h5'
-    if isfile(weights_path):
-        model = VGG_19()
+    weights_path = 'models/vgg19/vgg19_weights.h5'
+    if os.path.isfile(weights_path):
+        model = VGG_19(weights_path)
         sgd = SGD(lr=0.1, decay=1e-6, momentum=0.9, nesterov=True)
         model.compile(optimizer=sgd, loss='categorical_crossentropy')
         out = model.predict(im)
         print np.argmax(out)
     else:
-        print "Couldn't find ./data/vgg19/vgg19_weights.h5 - Please download from https://drive.google.com/file/d/0Bz7KyqmuGsilZ2RVeVhKY0FyRmc/view and place in the expected path."
+        print "Couldn't find " + weights_path  + " - Please download from https://drive.google.com/file/d/0Bz7KyqmuGsilZ2RVeVhKY0FyRmc/view and place in the expected path."

@@ -1,5 +1,8 @@
 data/coco/val2014.zip
 data/flickr30k/flickr30k-images
+data/flicker8k/**/*
+models/*
+*.jpg
 anandlib/
 *.pkl
 *.py~
@@ -20,7 +23,11 @@ __pycache__/
 *.so
 
 # Distribution / packaging
+local/
+pip-selfcheck.json
 .Python
+include/
+bin/
 env/
 build/
 develop-eggs/
