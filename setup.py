@@ -11,6 +11,12 @@ setup(name='arctic-captions',
       install_requires=[
           'keras',
           'h5py',
-          'Pillow'
+          'Pillow',
+          'pandas',
+          'nltk',
+          'scipy',
+          'scikit-learn',
+          'scikit-image'
+          #TODO find way to document dependecy on 'opencv-python'
       ],
       zip_safe=False)
