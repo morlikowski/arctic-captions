@@ -1,6 +1,7 @@
 data/coco/val2014.zip
 data/flickr30k/flickr30k-images
 data/flicker8k/**/*
+.opencv_download
 models/*
 *.jpg
 anandlib/
