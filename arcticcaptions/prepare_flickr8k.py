@@ -1,4 +1,4 @@
-gimport sys
+import sys
 import os
 
 import pandas as pd
@@ -32,11 +32,18 @@ feat_path='../feat/flickr8k/'
 def my_tokenizer(s):
     return s.split()
 
+
+
 #cnn = CNN(deploy=vgg_deploy_path,
 #          model=vgg_model_path,
 #          batch_size=20,
 #          width=224,
 #          height=224)
+
+# Load the VGG 19 model and use the feature map of the fourth convolutional layer
+# before pooling. See Xu et al. 2016, section 4.3
+vgg19 = VGG19(weights='imagenet', include_top=False, pooling=False)
+
 
 annotations = pd.read_table(annotation_path, sep='\t', header=None, names=['image', 'caption'])
 annotations['image_num'] = annotations['image'].map(lambda x: x.split('#')[1])
