@@ -18,9 +18,9 @@ from keras.preprocessing import image
 from keras.applications.vgg19 import preprocess_input
 from keras.models import Model
 
-from skimage.io import imread
+from skimage.io import imread #TODO replace usage of skimage with keras.preprocessing
 
-from images import crop_image
+from util import images
 
 TRAIN_SIZE = 6000
 TEST_SIZE = 1000
@@ -42,11 +42,18 @@ def my_tokenizer(s):
 
 # Load the VGG 19 model and use the feature map of the fourth convolutional layer
 # before pooling. See Xu et al. 2016, section 4.3
-vgg19 = VGG19(weights='imagenet', include_top=False, pooling=False)
+vgg19 = VGG19(weights='imagenet', include_top=False)
+vgg19_conv_layer_output = Model(inputs=vgg19.input, outputs=vgg19.get_layer('block4_pool').output)
 
-
+image_data = image.load_img('../cat.jpg', target_size=(244,244))
+x = image.img_to_array(image_data)
+x = np.expand_dims(x, axis=0)
+x = preprocess_input(x)
+y = vgg19_conv_layer_output.predict(x)
+print y.shape
 annotations = pd.read_table(annotation_path, sep='\t', header=None, names=['image', 'caption'])
 annotations['image_num'] = annotations['image'].map(lambda x: x.split('#')[1])
+
 annotations['image'] = annotations['image'].map(lambda x: os.path.join(flickr_image_path,x.split('#')[0]))
 
 captions = annotations['caption'].values
@@ -107,7 +114,7 @@ for start, end in zip(range(0, len(images_train)+100, 100), range(100, len(image
     # TODO load and crop image, then extract features
     for image_file in image_files:
         image = imread(image_file)
-        x = crop_image(image, 244, 244)
+        x = images.crop_image(image, 244, 244)
         #feat = model.predict(x)
         #feat = cnn.get_features(image_list=image_files, layers='conv5_3', layer_sizes=[512,14,14])
     
