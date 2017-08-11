@@ -22,17 +22,24 @@ from skimage.io import imread #TODO replace usage of skimage with keras.preproce
 
 from util import images
 
+import theano
+print 'Theano version: ' +  theano.__version__
+
+import keras
+print 'Keras version: ' + keras.__version__
+
 TRAIN_SIZE = 6000
 TEST_SIZE = 1000
 
-annotation_path = '../data/flicker8k/text/Flickr8K.token.txt'
-flickr_image_path = '../data/Flicker8k/preprocessedImages/'
+annotation_path = '../data/flickr8k/text/Flickr8k.token.txt'
+
+# TODO Here was a different path before, pointing to preprocessed images.
+# What are these preprocessed images? Check if further preprocesing is needed!
+flickr_image_path = '../data/flickr8k/images/'
 feat_path='../feat/flickr8k/'
 
 def my_tokenizer(s):
     return s.split()
-
-
 
 #cnn = CNN(deploy=vgg_deploy_path,
 #          model=vgg_model_path,
@@ -43,7 +50,7 @@ def my_tokenizer(s):
 # Load the VGG 19 model and use the feature map of the fourth convolutional layer
 # before pooling. See Xu et al. 2016, section 4.3
 vgg19 = VGG19(weights='imagenet', include_top=False)
-vgg19_conv_layer_output = Model(inputs=vgg19.input, outputs=vgg19.get_layer('block4_pool').output)
+vgg19_conv_layer_output = Model(inputs=vgg19.input, outputs=vgg19.get_layer('block5_conv3').output)
 
 image_data = image.load_img('../cat.jpg', target_size=(244,244))
 x = image.img_to_array(image_data)
@@ -74,7 +81,6 @@ wordsDict = {i+2: words[i][0] for i in range(len(words))}
 with open('dictionary.pkl', 'wb') as f:
     cPickle.dump(wordsDict, f)
 
-
 images = pd.Series(annotations['image'].unique())
 image_id_dict = pd.Series(np.array(images.index), index=images)
 
@@ -93,6 +99,45 @@ test_ext_idx = [i for idx in test_idx for i in xrange(idx*5, (idx*5)+5)]
 dev_idx = all_idx[TRAIN_SIZE+TEST_SIZE:]
 dev_ext_idx = [i for idx in dev_idx for i in xrange(idx*5, (idx*5)+5)]
 
+
+def preprocess_dataset(images, captions, idx, ext_idx, size, save_path):
+    # Select training images and captions
+    images_train = images[idx]
+    captions_train = captions[ext_idx]
+    
+    # Reindex the training images
+    images_train.index = xrange(size)
+    image_id_dict_train = pd.Series(np.array(images_train.index), index=images_train)
+    # Create list of image ids corresponding to each caption
+    caption_image_id_train = [image_id_dict_train[img] for img in images_train for i in xrange(5)]
+    # Create tuples of caption and image id
+    cap_train = zip(captions_train, caption_image_id_train)
+    
+    # Iterate over all image paths, 100 image paths per iteration
+    # TODO: Evaluate if iterating over ranges makes sense - perhaps use to load multiple images at once? Is that faster?
+    for start, end in zip(range(0, len(images_train)+100, 100), range(100, len(images_train)+100, 100)):
+        image_files = images_train[start:end]
+        # TODO load and crop image, then extract features
+        for image_file in image_files:
+            image_data = image.load_img(image_file, target_size=(244,244))
+            x = image.img_to_array(image_data)
+            x = np.expand_dims(x, axis=0)
+            x = preprocess_input(x)
+            feat = vgg19_conv_layer_output.predict(x)
+            #feat = cnn.get_features(image_list=image_files, layers='conv5_3', layer_sizes=[512,14,14])
+            
+        if start == 0:
+            feat_flatten_list_train = scipy.sparse.csr_matrix(np.array(map(lambda x: x.flatten(), feat)))
+        else:
+            feat_flatten_list_train = scipy.sparse.vstack([feat_flatten_list_train, scipy.sparse.csr_matrix(np.array(map(lambda x: x.flatten(), feat)))])
+    
+        print "processing images %d to %d" % (start, end)
+    
+    with open(save_path, 'wb') as f:
+        cPickle.dump(cap_train, f,-1)
+        cPickle.dump(feat_flatten_list_train, f)
+        pdb.set_trace()
+
 ## TRAINING SET
 
 # Select training images and captions
@@ -107,15 +152,20 @@ caption_image_id_train = [image_id_dict_train[img] for img in images_train for i
 # Create tuples of caption and image id
 cap_train = zip(captions_train, caption_image_id_train)
 
+# TODO initalize with proper dimensionality
+feat_flatten_list_train = []
+
 # Iterate over all image paths, 100 image paths per iteration
 # TODO: Evaluate if iterating over ranges makes sense - perhaps use to load multiple images at once? Is that faster?
 for start, end in zip(range(0, len(images_train)+100, 100), range(100, len(images_train)+100, 100)):
     image_files = images_train[start:end]
-    # TODO load and crop image, then extract features
+
     for image_file in image_files:
-        image = imread(image_file)
-        x = images.crop_image(image, 244, 244)
-        #feat = model.predict(x)
+        image_data = image.load_img(image_file, target_size=(244,244))
+        x = image.img_to_array(image_data)
+        x = np.expand_dims(x, axis=0)
+        x = preprocess_input(x)
+        feat = vgg19_conv_layer_output.predict(x)
         #feat = cnn.get_features(image_list=image_files, layers='conv5_3', layer_sizes=[512,14,14])
     
     if start == 0:
