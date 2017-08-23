@@ -41,23 +41,19 @@ feat_path='../feat/flickr8k/'
 def my_tokenizer(s):
     return s.split()
 
-#cnn = CNN(deploy=vgg_deploy_path,
-#          model=vgg_model_path,
-#          batch_size=20,
-#          width=224,
-#          height=224)
-
 # Load the VGG 19 model and use the feature map of the fourth convolutional layer
 # before pooling. See Xu et al. 2016, section 4.3
 vgg19 = VGG19(weights='imagenet', include_top=False)
 vgg19_conv_layer_output = Model(inputs=vgg19.input, outputs=vgg19.get_layer('block5_conv3').output)
 
-image_data = image.load_img('../cat.jpg', target_size=(244,244))
-x = image.img_to_array(image_data)
-x = np.expand_dims(x, axis=0)
-x = preprocess_input(x)
-y = vgg19_conv_layer_output.predict(x)
-print y.shape
+# This gives the output for a single image. Can be used as a sanity check
+#image_data = image.load_img('../cat.jpg', target_size=(244,244))
+#x = image.img_to_array(image_data)
+#x = np.expand_dims(x, axis=0)
+#x = preprocess_input(x)
+#y = vgg19_conv_layer_output.predict(x)
+#print y.shape
+
 annotations = pd.read_table(annotation_path, sep='\t', header=None, names=['image', 'caption'])
 annotations['image_num'] = annotations['image'].map(lambda x: x.split('#')[1])
 
@@ -113,14 +109,6 @@ def preprocess_dataset(images, captions, idx, ext_idx, size, save_path):
     # Create tuples of caption and image id
     cap_train = zip(captions_train, caption_image_id_train)
 
-    with open('filenames.txt', 'w') as test_file:
-        for line in images_train:
-            test_file.write(line)
-            test_file.write('\n')
-    print 'Wrote extracted images\' file names to filenames.txt'
-
-    # FIXME Why is there a path ../data/flickr8k/images/2258277193_586949ec62.jpg.1 ? (Note the .1 at the end!)
-
     # Iterate over all image paths, 100 image paths per iteration
     # TODO: Evaluate if iterating over ranges makes sense - maybe load multiple images at once? Is that faster?
     for start, end in zip(range(0, len(images_train)+100, 100), range(100, len(images_train)+100, 100)):
@@ -142,11 +130,10 @@ def preprocess_dataset(images, captions, idx, ext_idx, size, save_path):
         print "processing images %d to %d" % (start, end)
     
     # TODO Shouldn't it be possible to write and append this on every iteration, not blocking RAM unnecessarily?
+    print "Done, writing to: " + save_path
     with open(save_path, 'wb') as f:
         cPickle.dump(cap_train, f,-1)
         cPickle.dump(feat_flatten_list_train, f)
-        pdb.set_trace()
-
 
 preprocess_dataset(images, captions, train_idx, train_ext_idx, TRAIN_SIZE, '../data/flickr8k/flicker_8k_align.train.pkl')
 
