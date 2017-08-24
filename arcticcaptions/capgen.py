@@ -35,6 +35,12 @@ import flickr8k
 import flickr30k
 import coco
 
+# set floatX to float32
+print "theano.config.floatX is " + theano.config.floatX
+if theano.config.floatX == 'float64':
+    theano.config.floatX = 'float32'
+    print "theano.config.floatX now set to float32"
+    
 
 # datasets: 'name', 'load_data: returns iterator', 'prepare_data: some preprocessing'
 datasets = {'flickr8k': (flickr8k.load_data, flickr8k.prepare_data),

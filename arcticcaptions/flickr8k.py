@@ -11,8 +11,13 @@ def prepare_data(caps, features, worddict, maxlen=None, n_words=10000, zero_pad=
     # x: a list of sentences
     seqs = []
     feat_list = []
+    # TODO either modify the preprocessing code or the subsequent code here to prevent the need for swapping
+    swapped_worddict = dict((word, index) for index, word in worddict.iteritems())
     for cc in caps:
-        seqs.append([worddict[w] if worddict[w] < n_words else 1 for w in cc[0].split()])
+        seqs.append([swapped_worddict[w] if swapped_worddict[w] < n_words else 1 for w in cc[0].split()])
+        print features.shape
+        print cc[1]
+        # FIXME this is out of range, but what actually is the expected output?
         feat_list.append(features[cc[1]])
 
     lengths = [len(s) for s in seqs]
@@ -53,7 +58,7 @@ def prepare_data(caps, features, worddict, maxlen=None, n_words=10000, zero_pad=
 
     return x, x_mask, y
 
-def load_data(load_train=True, load_dev=True, load_test=True, path='data/flickr8k/'):
+def load_data(load_train=True, load_dev=True, load_test=True, path='../data/flickr8k/'):
     ''' Loads the dataset
 
     :type dataset: string
@@ -86,9 +91,8 @@ def load_data(load_train=True, load_dev=True, load_test=True, path='data/flickr8
         valid = (dev_cap, dev_feat)
     else:
         valid = None
-
-
+    
     with open(path+'dictionary.pkl', 'rb') as f:
         worddict = pkl.load(f)
-
+    
     return train, valid, test, worddict

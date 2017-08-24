@@ -36,10 +36,6 @@ annotation_path = '../data/flickr8k/text/Flickr8k.token.txt'
 # TODO Here was a different path before, pointing to preprocessed images.
 # What are these preprocessed images? Check if further preprocesing is needed!
 flickr_image_path = '../data/flickr8k/images/'
-feat_path='../feat/flickr8k/'
-
-def my_tokenizer(s):
-    return s.split()
 
 # Load the VGG 19 model and use the feature map of the fourth convolutional layer
 # before pooling. See Xu et al. 2016, section 4.3
@@ -61,9 +57,15 @@ annotations['image'] = annotations['image'].map(lambda x: os.path.join(flickr_im
 
 captions = annotations['caption'].values
 
-words = nltk.FreqDist(' '.join(captions).split()).most_common()
+with open('captions.txt', 'w') as f:
+    for caption in captions:
+        f.write(caption)
+        f.write('\n')
 
+words = nltk.FreqDist(' '.join(captions).split()).most_common()
 wordsDict = {i+2: words[i][0] for i in range(len(words))}
+
+print wordsDict
 
 # vectorizer = CountVectorizer(token_pattern='\\b\\w+\\b').fit(captions)
 # dictionary = vectorizer.vocabulary_
@@ -74,12 +76,15 @@ wordsDict = {i+2: words[i][0] for i in range(len(words))}
 # from collections import OrderedDict
 # dictionary = OrderedDict(sorted(dictionary.items(), key=lambda x:x[1], reverse=True))
 
-with open('dictionary.pkl', 'wb') as f:
+with open('../data/flickr8k/dictionary.pkl', 'wb') as f:
     cPickle.dump(wordsDict, f)
+print "Wrote dictionary."
 
 images = pd.Series(annotations['image'].unique())
 image_id_dict = pd.Series(np.array(images.index), index=images)
 
+TRAIN_SIZE = 6000
+TEST_SIZE = 1000
 DEV_SIZE = len(images) - TRAIN_SIZE - TEST_SIZE
 
 caption_image_id = annotations['image'].map(lambda x: image_id_dict[x]).values
@@ -136,6 +141,8 @@ def preprocess_dataset(images, captions, idx, ext_idx, size, save_path):
         cPickle.dump(feat_flatten_list_train, f)
 
 preprocess_dataset(images, captions, train_idx, train_ext_idx, TRAIN_SIZE, '../data/flickr8k/flicker_8k_align.train.pkl')
+preprocess_dataset(images, captions, test_idx, test_ext_idx, TEST_SIZE, '../data/flickr8k/flicker_8k_align.test.pkl')
+preprocess_dataset(images, captions, dev_idx, dev_ext_idx, DEV_SIZE, '../data/flickr8k/flicker_8k_align.dev.pkl')
 
 ### TRAINING SET
 #
