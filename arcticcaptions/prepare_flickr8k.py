@@ -32,9 +32,6 @@ TRAIN_SIZE = 6000
 TEST_SIZE = 1000
 
 annotation_path = '../data/flickr8k/text/Flickr8k.token.txt'
-
-# TODO Here was a different path before, pointing to preprocessed images.
-# What are these preprocessed images? Check if further preprocesing is needed!
 flickr_image_path = '../data/flickr8k/images/'
 
 # Load the VGG 19 model and use the feature map of the fourth convolutional layer
@@ -65,14 +62,12 @@ with open('captions.txt', 'w') as f:
 words = nltk.FreqDist(' '.join(captions).split()).most_common()
 wordsDict = {i+2: words[i][0] for i in range(len(words))}
 
-print wordsDict
-
 # vectorizer = CountVectorizer(token_pattern='\\b\\w+\\b').fit(captions)
 # dictionary = vectorizer.vocabulary_
 # dictionary_series = pd.Series(dictionary.values(), index=dictionary.keys()) + 2
 # dictionary = dictionary_series.to_dict()
 
-# # Sort dictionary in descending order
+# Sort dictionary in descending order
 # from collections import OrderedDict
 # dictionary = OrderedDict(sorted(dictionary.items(), key=lambda x:x[1], reverse=True))
 
@@ -100,144 +95,55 @@ test_ext_idx = [i for idx in test_idx for i in xrange(idx*5, (idx*5)+5)]
 dev_idx = all_idx[TRAIN_SIZE+TEST_SIZE:]
 dev_ext_idx = [i for idx in dev_idx for i in xrange(idx*5, (idx*5)+5)]
 
+def preprocess_image(image_file):
+    image_data = image.load_img(image_file, target_size=(244,244))
+    x = image.img_to_array(image_data)
+    x = np.expand_dims(x, axis=0)
+    return preprocess_input(x)
 
 def preprocess_dataset(images, captions, idx, ext_idx, size, save_path):
-    # Select training images and captions
-    images_train = images[idx]
-    captions_train = captions[ext_idx]
+    # Select images and captions
+    selected_images = images[idx]
+    selected_captions = captions[ext_idx]
     
     # Reindex the training images
-    images_train.index = xrange(size)
-    image_id_dict_train = pd.Series(np.array(images_train.index), index=images_train)
+    selected_images.index = xrange(size)
+    image_id_dict = pd.Series(np.array(selected_images.index), index=selected_images)
+
     # Create list of image ids corresponding to each caption
-    caption_image_id_train = [image_id_dict_train[img] for img in images_train for i in xrange(5)]
+    caption_image_id = [image_id_dict[img] for img in selected_images for i in xrange(5)]
+
     # Create tuples of caption and image id
-    cap_train = zip(captions_train, caption_image_id_train)
+    capption_id_tuples = zip(selected_captions, caption_image_id)
 
     # Iterate over all image paths, 100 image paths per iteration
     # TODO: Evaluate if iterating over ranges makes sense - maybe load multiple images at once? Is that faster?
-    for start, end in zip(range(0, len(images_train)+100, 100), range(100, len(images_train)+100, 100)):
-        image_files = images_train[start:end]
-        
-        for image_file in image_files:
-            image_data = image.load_img(image_file, target_size=(244,244))
-            x = image.img_to_array(image_data)
-            x = np.expand_dims(x, axis=0)
-            x = preprocess_input(x)
-            feat = vgg19_conv_layer_output.predict(x)
-            #feat = cnn.get_features(image_list=image_files, layers='conv5_3', layer_sizes=[512,14,14])
-            
+    for start, end in zip(range(0, len(selected_images)+100, 100), range(100, len(selected_images)+100, 100)):
+        image_paths = selected_images[start:end]
+        print "Processing images %d to %d" % (start, end)
+
+        image_feature_tensors  = [preprocess_image(image_file) for image_file in image_paths]
+        x = np.concatenate(image_feature_tensors, axis=0)
+
+        feat = vgg19_conv_layer_output.predict(x)
+        # Original code:
+        # feat = cnn.get_features(image_list=image_files, layers='conv5_3', layer_sizes=[512,14,14])
+        # TODO: Double-check if I get the correct dimensions in the expected format
+
+        # On the first iteration, create a new sparse matrix out of the CNN output
+        # with each image feature tensor flattened into a row vector.
+        # Concatenate subsequent image feature tensors to this matrix in the same way.
         if start == 0:
-            feat_flatten_list_train = scipy.sparse.csr_matrix(np.array(map(lambda x: x.flatten(), feat)))
+            all_features_matrix = scipy.sparse.csr_matrix(np.array(map(lambda x: x.flatten(), feat)))
         else:
-            feat_flatten_list_train = scipy.sparse.vstack([feat_flatten_list_train, scipy.sparse.csr_matrix(np.array(map(lambda x: x.flatten(), feat)))])
-    
-        print "processing images %d to %d" % (start, end)
+            all_features_matrix = scipy.sparse.vstack([feat_flatten_list_train, scipy.sparse.csr_matrix(np.array(map(lambda x: x.flatten(), feat)))])
     
     # TODO Shouldn't it be possible to write and append this on every iteration, not blocking RAM unnecessarily?
     print "Done, writing to: " + save_path
     with open(save_path, 'wb') as f:
-        cPickle.dump(cap_train, f,-1)
-        cPickle.dump(feat_flatten_list_train, f)
+        cPickle.dump(caption_id_tuples, f,-1)
+        cPickle.dump(all_fatures_matrix, f)
 
 preprocess_dataset(images, captions, train_idx, train_ext_idx, TRAIN_SIZE, '../data/flickr8k/flicker_8k_align.train.pkl')
 preprocess_dataset(images, captions, test_idx, test_ext_idx, TEST_SIZE, '../data/flickr8k/flicker_8k_align.test.pkl')
 preprocess_dataset(images, captions, dev_idx, dev_ext_idx, DEV_SIZE, '../data/flickr8k/flicker_8k_align.dev.pkl')
-
-### TRAINING SET
-#
-## Select training images and captions
-#images_train = images[train_idx]
-#captions_train = captions[train_ext_idx]
-#
-## Reindex the training images
-#images_train.index = xrange(TRAIN_SIZE)
-#image_id_dict_train = pd.Series(np.array(images_train.index), index=images_train)
-## Create list of image ids corresponding to each caption
-#caption_image_id_train = [image_id_dict_train[img] for img in images_train for i in xrange(5)]
-## Create tuples of caption and image id
-#cap_train = zip(captions_train, caption_image_id_train)
-#
-## TODO initalize with proper dimensionality
-#feat_flatten_list_train = []
-#
-## Iterate over all image paths, 100 image paths per iteration
-## TODO: Evaluate if iterating over ranges makes sense - perhaps use to load multiple images at once? Is that faster?
-#for start, end in zip(range(0, len(images_train)+100, 100), range(100, len(images_train)+100, 100)):
-#    image_files = images_train[start:end]
-#
-#    for image_file in image_files:
-#        image_data = image.load_img(image_file, target_size=(244,244))
-#        x = image.img_to_array(image_data)
-#        x = np.expand_dims(x, axis=0)
-#        x = preprocess_input(x)
-#        feat = vgg19_conv_layer_output.predict(x)
-#        #feat = cnn.get_features(image_list=image_files, layers='conv5_3', layer_sizes=[512,14,14])
-#    
-#    if start == 0:
-#        feat_flatten_list_train = scipy.sparse.csr_matrix(np.array(map(lambda x: x.flatten(), feat)))
-#    else:
-#        feat_flatten_list_train = scipy.sparse.vstack([feat_flatten_list_train, scipy.sparse.csr_matrix(np.array(map(lambda x: x.flatten(), feat)))])
-#
-#    print "processing images %d to %d" % (start, end)
-#
-#with open('data/flickr8k/flicker_8k_align.train.pkl', 'wb') as f:
-#    cPickle.dump(cap_train, f,-1)
-#    cPickle.dump(feat_flatten_list_train, f)
-#    pdb.set_trace()
-#
-### TEST SET
-#
-## Select test images and captions
-#images_test = images[test_idx]
-#captions_test = captions[test_ext_idx]
-#
-## Reindex the test images
-#images_test.index = xrange(TEST_SIZE)
-#image_id_dict_test = pd.Series(np.array(images_test.index), index=images_test)
-## Create list of image ids corresponding to each caption
-#caption_image_id_test = [image_id_dict_test[img] for img in images_test for i in xrange(5)]
-## Create tuples of caption and image id
-#cap_test = zip(captions_test, caption_image_id_test)
-#
-#for start, end in zip(range(0, len(images_test)+100, 100), range(100, len(images_test)+100, 100)):
-#    image_files = images_test[start:end]
-#    feat = cnn.get_features(image_list=image_files, layers='conv5_3', layer_sizes=[512,14,14])
-#    if start == 0:
-#        feat_flatten_list_test = scipy.sparse.csr_matrix(np.array(map(lambda x: x.flatten(), feat)))
-#    else:
-#        feat_flatten_list_test = scipy.sparse.vstack([feat_flatten_list_test, scipy.sparse.csr_matrix(np.array(map(lambda x: x.flatten(), feat)))])
-#
-#    print "processing images %d to %d" % (start, end)
-#
-#with open('data/flickr8k/flicker_8k_align.test.pkl', 'wb') as f:
-#    cPickle.dump(cap_test, f)
-#    cPickle.dump(feat_flatten_list_test, f)
-#
-### DEV SET
-#
-## Select dev images and captions
-#images_dev = images[dev_idx]
-#captions_dev = captions[dev_ext_idx]
-#
-## Reindex the dev images
-#images_dev.index = xrange(DEV_SIZE)
-#image_id_dict_dev = pd.Series(np.array(images_dev.index), index=images_dev)
-## Create list of image ids corresponding to each caption
-#caption_image_id_dev = [image_id_dict_dev[img] for img in images_dev for i in xrange(5)]
-## Create tuples of caption and image id
-#cap_dev = zip(captions_dev, caption_image_id_dev)
-#
-#for start, end in zip(range(0, len(images_dev)+100, 100), range(100, len(images_dev)+100, 100)):
-#    image_files = images_dev[start:end]
-#    feat = cnn.get_features(image_list=image_files, layers='conv5_3', layer_sizes=[512,14,14])
-#    if start == 0:
-#        feat_flatten_list_dev = scipy.sparse.csr_matrix(np.array(map(lambda x: x.flatten(), feat)))
-#    else:
-#        feat_flatten_list_dev = scipy.sparse.vstack([feat_flatten_list_dev, scipy.sparse.csr_matrix(np.array(map(lambda x: x.flatten(), feat)))])
-#
-#    print "processing images %d to %d" % (start, end)
-#
-#with open('data/flickr8k/flicker_8k_align.dev.pkl', 'wb') as f:
-#    cPickle.dump(cap_dev, f)
-#    cPickle.dump(feat_flatten_list_dev, f)
