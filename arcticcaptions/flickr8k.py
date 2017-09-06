@@ -6,18 +6,17 @@ import time
 
 import numpy
 
+import pdb
 
 def prepare_data(caps, features, worddict, maxlen=None, n_words=10000, zero_pad=False):
     # x: a list of sentences
     seqs = []
     feat_list = []
-    # TODO either modify the preprocessing code or the subsequent code here to prevent the need for swapping
+    # TODO either modify the preprocessing code or the subsequent code here to prevent the need for
+    # a swapped word dict
     swapped_worddict = dict((word, index) for index, word in worddict.iteritems())
     for cc in caps:
         seqs.append([swapped_worddict[w] if swapped_worddict[w] < n_words else 1 for w in cc[0].split()])
-        print features.shape
-        print cc[1]
-        # FIXME this is out of range, but what actually is the expected output?
         feat_list.append(features[cc[1]])
 
     lengths = [len(s) for s in seqs]
@@ -37,11 +36,14 @@ def prepare_data(caps, features, worddict, maxlen=None, n_words=10000, zero_pad=
 
         if len(lengths) < 1:
             return None, None, None
-
+    
     y = numpy.zeros((len(feat_list), feat_list[0].shape[1])).astype('float32')
     for idx, ff in enumerate(feat_list):
         y[idx,:] = numpy.array(ff.todense())
-    y = y.reshape([y.shape[0], 14*14, 512])
+        
+    # TODO: Check if using the extra dimensions 15,15 instead of 14,14 makes sense
+    # Is this some kind of padding or a bias?
+    y = y.reshape((y.shape[0], 15*15, 512))
     if zero_pad:
         y_pad = numpy.zeros((y.shape[0], y.shape[1]+1, y.shape[2])).astype('float32')
         y_pad[:,:-1,:] = y

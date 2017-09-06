@@ -37,7 +37,7 @@ flickr_image_path = '../data/flickr8k/images/'
 # Load the VGG 19 model and use the feature map of the fourth convolutional layer
 # before pooling. See Xu et al. 2016, section 4.3
 vgg19 = VGG19(weights='imagenet', include_top=False)
-vgg19_conv_layer_output = Model(inputs=vgg19.input, outputs=vgg19.get_layer('block5_conv3').output)
+vgg19_conv_layer_output = Model(inputs=vgg19.input, outputs=vgg19.get_layer('block5_conv4').output)
 
 # This gives the output for a single image. Can be used as a sanity check
 #image_data = image.load_img('../cat.jpg', target_size=(244,244))
@@ -114,21 +114,24 @@ def preprocess_dataset(images, captions, idx, ext_idx, size, save_path):
     caption_image_id = [image_id_dict[img] for img in selected_images for i in xrange(5)]
 
     # Create tuples of caption and image id
-    capption_id_tuples = zip(selected_captions, caption_image_id)
+    caption_id_tuples = zip(selected_captions, caption_image_id)
+    #pdb.set_trace()
 
     # Iterate over all image paths, 100 image paths per iteration
     # TODO: Evaluate if iterating over ranges makes sense - maybe load multiple images at once? Is that faster?
+    # TODO: Explore Model.predict_generator 
     for start, end in zip(range(0, len(selected_images)+100, 100), range(100, len(selected_images)+100, 100)):
         image_paths = selected_images[start:end]
         print "Processing images %d to %d" % (start, end)
 
-        image_feature_tensors  = [preprocess_image(image_file) for image_file in image_paths]
-        x = np.concatenate(image_feature_tensors, axis=0)
+        image_feature_tensors_list  = [preprocess_image(image_file) for image_file in image_paths]
+        x = np.concatenate(image_feature_tensors_list, axis=0)
 
         feat = vgg19_conv_layer_output.predict(x)
+        pdb.set_trace()
         # Original code:
         # feat = cnn.get_features(image_list=image_files, layers='conv5_3', layer_sizes=[512,14,14])
-        # TODO: Double-check if I get the correct dimensions in the expected format
+        # TODO: Double-check if this  gets the correct dimensions in the expected format
 
         # On the first iteration, create a new sparse matrix out of the CNN output
         # with each image feature tensor flattened into a row vector.
@@ -136,13 +139,13 @@ def preprocess_dataset(images, captions, idx, ext_idx, size, save_path):
         if start == 0:
             all_features_matrix = scipy.sparse.csr_matrix(np.array(map(lambda x: x.flatten(), feat)))
         else:
-            all_features_matrix = scipy.sparse.vstack([feat_flatten_list_train, scipy.sparse.csr_matrix(np.array(map(lambda x: x.flatten(), feat)))])
+            all_features_matrix = scipy.sparse.vstack([all_features_matrix, scipy.sparse.csr_matrix(np.array(map(lambda x: x.flatten(), feat)))])
     
     # TODO Shouldn't it be possible to write and append this on every iteration, not blocking RAM unnecessarily?
     print "Done, writing to: " + save_path
     with open(save_path, 'wb') as f:
         cPickle.dump(caption_id_tuples, f,-1)
-        cPickle.dump(all_fatures_matrix, f)
+        cPickle.dump(all_features_matrix, f)
 
 preprocess_dataset(images, captions, train_idx, train_ext_idx, TRAIN_SIZE, '../data/flickr8k/flicker_8k_align.train.pkl')
 preprocess_dataset(images, captions, test_idx, test_ext_idx, TEST_SIZE, '../data/flickr8k/flicker_8k_align.test.pkl')
