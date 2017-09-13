@@ -128,7 +128,8 @@ def preprocess_dataset(images, captions, idx, ext_idx, size, save_path):
         x = np.concatenate(image_feature_tensors_list, axis=0)
 
         feat = vgg19_conv_layer_output.predict(x)
-        pdb.set_trace()
+        feat = feat[:, :14, :14] # convert the 100x15x15x512 tensor to 100x14x14x512, to match expected dims
+        #pdb.set_trace()
         # Original code:
         # feat = cnn.get_features(image_list=image_files, layers='conv5_3', layer_sizes=[512,14,14])
         # TODO: Double-check if this  gets the correct dimensions in the expected format

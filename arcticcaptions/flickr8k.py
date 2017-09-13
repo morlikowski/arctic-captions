@@ -41,9 +41,9 @@ def prepare_data(caps, features, worddict, maxlen=None, n_words=10000, zero_pad=
     for idx, ff in enumerate(feat_list):
         y[idx,:] = numpy.array(ff.todense())
         
-    # TODO: Check if using the extra dimensions 15,15 instead of 14,14 makes sense
+    # TODO: Check if using the extra dimensions from preprocessing (15,15 instead of 14,14) makes sense
     # Is this some kind of padding or a bias?
-    y = y.reshape((y.shape[0], 15*15, 512))
+    y = y.reshape((y.shape[0], 14*14, 512))
     if zero_pad:
         y_pad = numpy.zeros((y.shape[0], y.shape[1]+1, y.shape[2])).astype('float32')
         y_pad[:,:-1,:] = y
