@@ -1,5 +1,6 @@
-# There is also a dependecy on python-opencv, I didn't find a better way
-# to document this
+# There is also a dependecy on python-opencv, but I didn't find a better way
+# to document this. Run install_opencv_virtualenv.sh to install into an
+# activated virtualenv
 backports.shutil-get-terminal-size==1.0.0
 cycler==0.10.0
 decorator==4.1.1
